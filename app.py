@@ -10,47 +10,54 @@ from dotenv import load_dotenv
 from google import genai
 from supabase import create_client, Client
 
-# טעינת משתני סביבה
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 db_url = os.getenv("DATABASE_URL")
 sb_url = os.getenv("SUPABASE_URL")
 sb_key = os.getenv("SUPABASE_KEY")
 
-# הגדרת תצורת העמוד חייבת להיות הפקודה הראשונה של סטרימליט
-st.set_page_config(page_title="ניהול השקעות - דוד נפתלי", layout="wide")
+st.set_page_config(page_title="ניהול השקעות מתקדם", layout="wide")
 
-# אתחול שירותי ענן
+st.markdown("""
+<style>
+    .block-container { direction: rtl; text-align: right; }
+    p, h1, h2, h3, h4, h5, h6, span, div, label { direction: rtl; text-align: right; }
+    .stTabs [data-baseweb="tab-list"] { direction: rtl; justify-content: flex-start; }
+    .stAlert { direction: rtl; text-align: right; }
+    input { text-align: right; }
+</style>
+""", unsafe_allow_html=True)
+
 if sb_url and sb_key:
     supabase: Client = create_client(sb_url, sb_key)
 else:
-    st.error("חסרים מפתחות גישה של סופאבייס (Supabase Keys).")
+    st.error("חסרים מפתחות גישה של סופאבייס (Supabase keys).")
 
 if not db_url:
     st.error("כתובת מסד הנתונים (Database URL) חסרה.")
 else:
     engine = create_engine(db_url)
 
-# ניהול מצב משתמש ועיצוב
 if 'user' not in st.session_state:
     st.session_state.user = None
 if 'ui_theme' not in st.session_state:
     st.session_state.ui_theme = "מקצועי נקי"
+if 'watchlist' not in st.session_state:
+    st.session_state.watchlist = []
 
-# פונקציות ליבה
 @st.cache_data(ttl=129600)
 def get_ai_analysis(ticker, summary, metrics_text):
     client = genai.Client(api_key=api_key)
     prompt = f"""
-    אתה אנליסט פיננסי בכיר. נתח את החברה {ticker} על בסיס הנתונים הבאים:
+    אתה אנליסט פיננסי בכיר. נתח את החברה {ticker} על בסיס הנתונים הבאים באובייקטיביות מוחלטת.
     סקירה עסקית: {summary}
     מדדים: {metrics_text}
     
     חוקי ברזל לכתיבה:
     1. כתוב משפטים זורמים ומלאים בעברית בלבד.
-    2. כל שם חברה, מוצר או מונח פיננסי חייב להופיע כתרגום עברי ומיד לאחריו המונח באנגלית בתוך סוגריים.
-    3. אסור להשתמש בנקודתיים ליצירת רשימות הסבר. שלב את המידע כמשפטים רציפים לחלוטין.
-    4. נתח את המודל העסקי, החוזקות, הסיכונים והתמחור באובייקטיביות נוקשה.
+    2. כל מונח מקצועי או שם מוצר חייב להופיע כתרגום עברי ומיד לאחריו המונח המקורי באנגלית בתוך סוגריים.
+    3. אסור להשתמש בנקודתיים ליצירת רשימות. נסח כל פריט כמשפט עברי שלם ורציף.
+    4. חתוך משפטי נימוס או מבואות מיותרים והצג את הסיכונים והחוזקות באופן ישיר.
     """
     try:
         response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
@@ -155,14 +162,13 @@ def render_custom_metric(label, value, theme_style):
     return f"""
     <div style="background: {bg_color}; border-right: 5px solid {border_color}; padding: 18px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; direction: rtl; text-align: right;">
         <div style="color: {label_color}; font-size: 0.95rem; font-weight: 600; margin-bottom: 8px;">{label}</div>
-        <div style="color: {text_color}; font-size: 1.7rem; font-weight: 800;">{value}</div>
+        <div style="color: {text_color}; font-size: 1.7rem; font-weight: 800; direction: ltr;">{value}</div>
     </div>
     """
 
-# מסך כניסה והרשמה
 def login_screen():
-    st.title("ברוכים הבאים למערכת ניהול ההשקעות")
-    tab_login, tab_signup = st.tabs(["התחברות", "יצירת חשבון חדש"])
+    st.title("מערכת ניהול השקעות מתקדמת")
+    tab_login, tab_signup = st.tabs(["התחברות (Login)", "יצירת חשבון (Sign Up)"])
     
     with tab_login:
         with st.form("login_form"):
@@ -174,7 +180,7 @@ def login_screen():
                     st.session_state.user = res.user
                     st.rerun()
                 except Exception:
-                    st.error("שגיאה בפרטי הכניסה. ודא כי האימייל והסיסמה נכונים.")
+                    st.error("שגיאה בפרטי הכניסה.")
                     
     with tab_signup:
         with st.form("signup_form"):
@@ -183,53 +189,50 @@ def login_screen():
             if st.form_submit_button("צור חשבון"):
                 try:
                     supabase.auth.sign_up({"email": new_email, "password": new_password})
-                    st.success("החשבון נוצר בהצלחה. כעת ניתן לעבור ללשונית התחברות.")
+                    st.success("החשבון נוצר בהצלחה.")
                 except Exception as e:
                     st.error(f"שגיאה ביצירת החשבון {str(e)}")
 
-# חסימת גישה למשתמשים לא מחוברים
 if st.session_state.user is None:
     login_screen()
     st.stop()
 
 current_user_uid = st.session_state.user.id
 
-# תפריט צדדי (Sidebar)
-st.sidebar.write(f"שלום, {st.session_state.user.email}")
-if st.sidebar.button("התנתק (Logout)"):
+st.sidebar.write(f"משתמש מחובר: {st.session_state.user.email}")
+if st.sidebar.button("התנתקות (Logout)"):
     st.session_state.user = None
     st.rerun()
 
-st.sidebar.header("הגדרות תצוגה אישיות")
-theme_choice = st.sidebar.selectbox("בחר סגנון עיצוב למערכת", ["מקצועי נקי", "הייטק כהה", "חוויתי צבעוני"])
+st.sidebar.header("הגדרות תצוגה (Display Settings)")
+theme_choice = st.sidebar.selectbox("בחר סגנון עיצוב", ["מקצועי נקי", "הייטק כהה", "חוויתי צבעוני"])
 st.session_state.ui_theme = theme_choice
 
-st.sidebar.header("פעולות מסחר")
+st.sidebar.header("פעולות מסחר (Trading Actions)")
 trade_action = st.sidebar.radio("בחר סוג פעולה", ["עסקת מניות", "מזומן"])
 
 if trade_action == "עסקת מניות":
     with st.sidebar.form("trade_form"):
         ticker_input = st.text_input("סמל מניה (Ticker)")
-        action_type = st.selectbox("סוג", ["BUY", "SELL"])
-        quantity = st.number_input("כמות (Quantity)", min_value=0.01)
+        action_type = st.selectbox("סוג פעולה", ["BUY", "SELL"])
+        quantity = st.number_input("כמות מניות (Quantity)", min_value=0.01)
         price = st.number_input("מחיר ליחידה (Price)", min_value=0.01)
-        if st.form_submit_button("בצע פעולה"):
+        if st.form_submit_button("בצע פעולה (Execute)"):
             query = "INSERT INTO transactions (user_id_cloud, ticker_symbol, transaction_type, quantity, price_per_unit, transaction_date) VALUES (%s, %s, %s, %s, %s, %s)"
             db_action(query, (current_user_uid, ticker_input.upper(), action_type, quantity, price, datetime.now()))
-            st.sidebar.success("הפעולה נרשמה בהצלחה")
+            st.sidebar.success("הפעולה נרשמה בהצלחה במסד הנתונים.")
             st.rerun()
 
 elif trade_action == "מזומן":
     with st.sidebar.form("cash_form"):
-        cash_action = st.selectbox("סוג פעולה", ["DEPOSIT", "WITHDRAW"])
-        amount = st.number_input("סכום (Amount)", min_value=1.0)
-        if st.form_submit_button("עדכן מזומן"):
+        cash_action = st.selectbox("סוג תנועה", ["DEPOSIT", "WITHDRAW"])
+        amount = st.number_input("סכום להזנה (Amount)", min_value=1.0)
+        if st.form_submit_button("עדכן מזומן (Update Cash)"):
             query = "INSERT INTO transactions (user_id_cloud, ticker_symbol, transaction_type, quantity, price_per_unit, transaction_date) VALUES (%s, 'CASH', %s, %s, 1.0, %s)"
             db_action(query, (current_user_uid, cash_action, amount, datetime.now()))
-            st.sidebar.success("יתרת המזומן עודכנה")
+            st.sidebar.success("יתרת המזומן עודכנה בהצלחה.")
             st.rerun()
 
-# אזור תצוגה מרכזי
 st.title("מסוף ניהול השקעות מתקדם (Advanced Trading Terminal)")
 
 tab_summary, tab_history, tab_watch, tab_calc, tab_research = st.tabs([
@@ -254,45 +257,58 @@ with tab_summary:
         st.plotly_chart(fig, use_container_width=True)
         st.dataframe(df_open, use_container_width=True)
     else:
-        st.info("אין החזקות פעילות בתיק זה כרגע. תוכל להוסיף פעולות בתפריט הצדדי.")
+        st.info("אין החזקות פעילות בחשבון זה.")
 
 with tab_history:
-    st.write("היסטוריית פעולות (Transaction History)")
+    st.write("היסטוריית פעולות מלאה (Transaction History)")
     if not df_transactions.empty:
         st.dataframe(df_transactions, use_container_width=True)
     else:
-        st.write("טרם בוצעו פעולות בחשבון זה.")
+        st.write("טרם בוצעו עסקאות במסד הנתונים.")
 
 with tab_watch:
-    st.write("בדיקת מחיר בזמן אמת (Live Price Check)")
-    watch_ticker = st.text_input("הזן סמל מניה למעקב")
-    if watch_ticker:
-        price = get_live_price(watch_ticker.upper())
-        if price: st.success(f"המחיר הנוכחי של {watch_ticker.upper()} הוא ${price:.2f}")
-        else: st.error("הסמל לא נמצא.")
+    st.write("רשימת מעקב חיה (Live Watchlist)")
+    new_watch = st.text_input("הוסף סמל לרשימת המעקב (Add Ticker)")
+    if st.button("הוסף לרשימה (Add)"):
+        if new_watch and new_watch.upper() not in st.session_state.watchlist:
+            st.session_state.watchlist.append(new_watch.upper())
+            st.rerun()
+            
+    if st.session_state.watchlist:
+        watch_data = []
+        for sym in st.session_state.watchlist:
+            price = get_live_price(sym)
+            watch_data.append({"סמל מניה": sym, "מחיר שוק נוכחי": f"${price:.2f}" if price else "שגיאת נתונים"})
+        st.table(pd.DataFrame(watch_data))
+        
+        if st.button("נקה רשימת מעקב (Clear List)"):
+            st.session_state.watchlist = []
+            st.rerun()
+    else:
+        st.write("רשימת המעקב ריקה כעת.")
 
 with tab_calc:
     st.write("מחשבון היוון תזרימי מזומנים (DCF Calculator)")
     fcf = st.number_input("תזרים מזומנים חופשי נוכחי במליונים (Current FCF)", value=100)
     growth = st.number_input("שיעור צמיחה צפוי באחוזים (Expected Growth Rate)", value=10)
     discount = st.number_input("שיעור היוון באחוזים (Discount Rate)", value=10)
-    if st.button("חשב שווי (Calculate Value)"):
+    if st.button("חשב שווי חברה (Calculate Value)"):
         if discount <= growth:
-            st.error("שיעור ההיוון חייב להיות גבוה משיעור הצמיחה.")
+            st.error("שיעור ההיוון חייב להיות גבוה משיעור הצמיחה כדי לייצר חישוב תקין.")
         else:
             terminal_value = (fcf * (1 + (growth/100))) / ((discount/100) - (growth/100))
-            st.success(f"השווי המוערך הוא ${terminal_value:.2f} מליון.")
+            st.success(f"השווי המוערך של החברה עומד על ${terminal_value:.2f} מליון.")
 
 with tab_research:
     st.write("ניתוח חברות מתקדם (Advanced Company Analysis)")
-    res_ticker = st.text_input("הזן סמל מניה לניתוח")
-    if st.button("הפק דוח אנליסט (Generate Analyst Report)"):
-        with st.spinner("אוסף נתונים ומנתח..."):
+    res_ticker = st.text_input("הזן סמל מניה לניתוח מעמיק")
+    if st.button("הפק דוח פיננסי (Generate Report)"):
+        with st.spinner("אוסף נתונים ומנתח מודלים עסקיים..."):
             info = get_stock_info(res_ticker.upper())
             if info:
-                summary = info.get('longBusinessSummary', 'אין מידע עסקי.')
+                summary = info.get('longBusinessSummary', 'אין מידע עסקי מעודכן במערכת.')
                 metrics = f"PE: {info.get('trailingPE')}, PB: {info.get('priceToBook')}, Margins: {info.get('profitMargins')}"
                 report = get_ai_analysis(res_ticker.upper(), summary, metrics)
                 st.write(report)
             else:
-                st.error("לא נמצאו נתונים עבור סמל זה.")
+                st.error("השרת לא מצא נתונים זמינים עבור הסמל שהוזן.")
