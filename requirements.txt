@@ -1,0 +1,8 @@
+streamlit
+yfinance
+pandas
+plotly
+psycopg2-binary
+SQLAlchemy
+google-genai
+python-dotenv
